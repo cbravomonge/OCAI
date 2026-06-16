@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organizational Culture Assessment Instrument</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f7fb;
+    color: #1f2937;
+    margin: 0;
+    padding: 24px;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: auto;
+  }
+
+  .card {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.05);
+  }
+
+  h1, h2, h3 { margin-top: 0; }
+
+  .muted {
+    color: #6b7280;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+  }
+
+  th, td {
+    border: 1px solid #d1d5db;
+    padding: 10px;
+    vertical-align: top;
+  }
+
+  th {
+    background: #eef2f7;
+  }
+
+  input[type="range"] {
+    width: 140px;
+  }
+
+  .value-label {
+    display: inline-block;
+    min-width: 32px;
+    font-weight: bold;
+    margin-left: 6px;
+  }
+
+  .total {
+    font-weight: bold;
+  }
+
+  .error {
+    color: #b91c1c;
+    font-weight: bold;
+    display: none;
+    margin-top: 10px;
+  }
+
+  button {
+    background: #111827;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 8px;
+  }
+
+  button.secondary {
+    background: #e5e7eb;
+    color: #111827;
+  }
+
+  .results {
+    display: none;
+  }
+
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  canvas {
+    width: 100%;
+    max-width: 520px;
+    height: 520px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+  }
+
+  .now { background: #2563eb; }
+  .preferred { background: #dc2626; }
+
+  .score-table td, .score-table th {
+    text-align: center;
+  }
+
+  .footnote {
+    font-size: 0.88rem;
+    color: #6b7280;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 800px) {
+    .results-grid {
+      grid-template-columns: 1fr;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+  }
+
+  @media print {
+    button, .assessment {
+      display: none;
+    }
+
+    body {
+      background: white;
+    }
+
+    .card {
+      box-shadow: none;
+    }
+  }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="card">
+    <h1>Organizational Culture Assessment Instrument</h1>
+    <p>This assessment helps identify your organization’s current culture and preferred future culture.</p>
+    <p class="muted">
+      For each question, distribute <strong>100 points</strong> across the four alternatives for <strong>Now</strong> and again for <strong>Preferred</strong>.
+      Each total must equal 100.
+    </p>
+  </div>
+
+  <div id="assessment" class="assessment"></div>
+
+  <div class="card">
+    <button onclick="calculateResults()">Calculate Results</button>
+    <button class="secondary" onclick="resetAssessment()">Reset</button>
+    <button class="secondary" onclick="window.print()">Print / Save as PDF</button>
+    <p id="error" class="error"></p>
+  </div>
+
+  <div id="results" class="card results">
+    <h2>OCAI Results</h2>
+
+    <div class="results-grid">
+      <div>
+        <h3>Culture Profile Graph</h3>
+        <canvas id="radarCanvas" width="520" height="520"></canvas>
+        <div class="legend">
+          <span><span class="swatch now"></span> Now</span>
+          <span><span class="swatch preferred"></span> Preferred</span>
+        </div>
+      </div>
+
+      <div>
+        <h3>Average Scores</h3>
+        <table class="score-table">
+          <thead>
+            <tr>
+              <th>Culture Type</th>
+              <th>Now</th>
+              <th>Preferred</th>
+              <th>Gap</th>
+            </tr>
+          </thead>
+          <tbody id="scoreBody"></tbody>
+        </table>
+
+        <div id="interpretation" class="card" style="box-shadow:none;margin-top:20px;"></div>
+      </div>
+    </div>
+
+    <p class="footnote">
+      This assessment is for reflection and organizational development conversations. It should not be used as a formal diagnostic instrument.
+      <br><br>
+      Assessment provided by <strong>crisbravo.com</strong>
+    </p>
+  </div>
+
+</div>
+
+<script>
+const questions = [
+  {
+    title: "1. Dominant Characteristics",
+    items: {
+      A: "The organization is a very personal place. It is like an extended family. People seem to share a lot of themselves.",
+      B: "The organization is a very dynamic entrepreneurial place. People are willing to stick their necks out and take risks.",
+      C: "The organization is very results oriented. A major concern is with getting the job done. People are very competitive and achievement oriented.",
+      D: "The organization is a very controlled and structured place. Formal procedures generally govern what people do."
+    }
+  },
+  {
+    title: "2. Organizational Leadership",
+    items: {
+      A: "The leadership in the organization is generally considered to exemplify mentoring, facilitating, or nurturing.",
+      B: "The leadership in the organization is generally considered to exemplify entrepreneurship, innovating, or risk taking.",
+      C: "The leadership in the organization is generally considered to exemplify a no-nonsense, aggressive, results-oriented focus.",
+      D: "The leadership in the organization is generally considered to exemplify coordinating, organizing, or smooth-running efficiency."
+    }
+  },
+  {
+    title: "3. Management of Employees",
+    items: {
+      A: "The management style in the organization is characterized by teamwork, consensus, and participation.",
+      B: "The management style in the organization is characterized by individual risk-taking, innovation, freedom, and uniqueness.",
+      C: "The management style in the organization is characterized by hard-driving competitiveness, high demands, and achievement.",
+      D: "The management style in the organization is characterized by security of employment, conformity, predictability, and stability in relationships."
+    }
+  },
+  {
+    title: "4. Organization Glue",
+    items: {
+      A: "The glue that holds the organization together is loyalty and mutual trust. Commitment to this organization runs high.",
+      B: "The glue that holds the organization together is commitment to innovation and development. There is an emphasis on being on the cutting edge.",
+      C: "The glue that holds the organization together is the emphasis on achievement and goal accomplishment. Aggressiveness and winning are common themes.",
+      D: "The glue that holds the organization together is formal rules and policies. Maintaining a smooth-running organization is important."
+    }
+  },
+  {
+    title: "5. Strategic Emphases",
+    items: {
+      A: "The organization emphasizes human development. High trust, openness, and participation persist.",
+      B: "The organization emphasizes acquiring new resources and creating new challenges. Trying new things and prospecting for opportunities are valued.",
+      C: "The organization emphasizes competitive actions and achievement. Hitting stretch targets and winning in the marketplace are dominant.",
+      D: "The organization emphasizes permanence and stability. Efficiency, control and smooth operations are important."
+    }
+  },
+  {
+    title: "6. Criteria of Success",
+    items: {
+      A: "The organization defines success on the basis of the development of human resources, teamwork, employee commitment, and concern for people.",
+      B: "The organization defines success on the basis of having the most unique or newest products. It is a product leader and innovator.",
+      C: "The organization defines success on the basis of winning in the marketplace and outpacing the competition. Competitive market leadership is key.",
+      D: "The organization defines success on the basis of efficiency. Dependable delivery, smooth scheduling and low-cost production are critical."
+    }
+  }
+];
+
+const cultureTypes = {
+  A: "Clan",
+  B: "Adhocracy",
+  C: "Market",
+  D: "Hierarchy"
+};
+
+function buildAssessment() {
+  const container = document.getElementById("assessment");
+  container.innerHTML = "";
+
+  questions.forEach((q, index) => {
+    const div = document.createElement("div");
+    div.className = "card question";
+
+    let rows = "";
+
+    ["A", "B", "C", "D"].forEach(letter => {
+      rows += `
+        <tr>
+          <td><strong>${letter}</strong></td>
+          <td>${q.items[letter]}</td>
+          <td>
+            <input type="range" min="0" max="100" id="now_${index}_${letter}" value="25">
+            <span class="value-label" id="now_label_${index}_${letter}">25</span>
+          </td>
+          <td>
+            <input type="range" min="0" max="100" id="pref_${index}_${letter}" value="25">
+            <span class="value-label" id="pref_label_${index}_${letter}">25</span>
+          </td>
+        </tr>
+      `;
+    });
+
+    div.innerHTML = `
+      <h3>${q.title}</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Now</th>
+            <th>Preferred</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" class="total">Total</td>
+            <td class="total" id="now_total_${index}">100</td>
+            <td class="total" id="pref_total_${index}">100</td>
+          </tr>
+        </tfoot>
+      </table>
+    `;
+
+    container.appendChild(div);
+  });
+
+  document.querySelectorAll("input[type='range']").forEach(input => {
+    input.addEventListener("input", updateTotals);
+  });
+
+  updateTotals();
+}
+
+function updateTotals() {
+  questions.forEach((q, index) => {
+    let nowTotal = 0;
+    let prefTotal = 0;
+
+    ["A", "B", "C", "D"].forEach(letter => {
+      const nowValue = Number(document.getElementById(`now_${index}_${letter}`).value || 0);
+      const prefValue = Number(document.getElementById(`pref_${index}_${letter}`).value || 0);
+
+      nowTotal += nowValue;
+      prefTotal += prefValue;
+
+      document.getElementById(`now_label_${index}_${letter}`).textContent = nowValue;
+      document.getElementById(`pref_label_${index}_${letter}`).textContent = prefValue;
+    });
+
+    const nowTotalEl = document.getElementById(`now_total_${index}`);
+    const prefTotalEl = document.getElementById(`pref_total_${index}`);
+
+    nowTotalEl.textContent = nowTotal;
+    prefTotalEl.textContent = prefTotal;
+
+    nowTotalEl.style.color = nowTotal === 100 ? "#16a34a" : "#b91c1c";
+    prefTotalEl.style.color = prefTotal === 100 ? "#16a34a" : "#b91c1c";
+  });
+}
+
+function validateTotals() {
+  for (let i = 0; i < questions.length; i++) {
+    let nowTotal = 0;
+    let prefTotal = 0;
+
+    ["A", "B", "C", "D"].forEach(letter => {
+      nowTotal += Number(document.getElementById(`now_${i}_${letter}`).value || 0);
+      prefTotal += Number(document.getElementById(`pref_${i}_${letter}`).value || 0);
+    });
+
+    if (nowTotal !== 100 || prefTotal !== 100) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function calculateResults() {
+  const error = document.getElementById("error");
+
+  if (!validateTotals()) {
+    error.textContent = "Each question must total exactly 100 points for both Now and Preferred.";
+    error.style.display = "block";
+    document.getElementById("results").style.display = "none";
+    return;
+  }
+
+  error.style.display = "none";
+
+  const now = { A: 0, B: 0, C: 0, D: 0 };
+  const preferred = { A: 0, B: 0, C: 0, D: 0 };
+
+  questions.forEach((q, index) => {
+    ["A", "B", "C", "D"].forEach(letter => {
+      now[letter] += Number(document.getElementById(`now_${index}_${letter}`).value || 0);
+      preferred[letter] += Number(document.getElementById(`pref_${index}_${letter}`).value || 0);
+    });
+  });
+
+  ["A", "B", "C", "D"].forEach(letter => {
+    now[letter] = Number((now[letter] / 6).toFixed(1));
+    preferred[letter] = Number((preferred[letter] / 6).toFixed(1));
+  });
+
+  renderScores(now, preferred);
+  drawRadar(now, preferred);
+  renderInterpretation(now, preferred);
+
+  document.getElementById("results").style.display = "block";
+  document.getElementById("results").scrollIntoView({ behavior: "smooth" });
+}
+
+function renderScores(now, preferred) {
+  const body = document.getElementById("scoreBody");
+  body.innerHTML = "";
+
+  ["A", "B", "C", "D"].forEach(letter => {
+    const gap = Number((preferred[letter] - now[letter]).toFixed(1));
+
+    body.innerHTML += `
+      <tr>
+        <td>${cultureTypes[letter]}</td>
+        <td>${now[letter]}</td>
+        <td>${preferred[letter]}</td>
+        <td>${gap > 0 ? "+" : ""}${gap}</td>
+      </tr>
+    `;
+  });
+}
+
+function drawRadar(now, preferred) {
+  const canvas = document.getElementById("radarCanvas");
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const maxRadius = 190;
+  const maxScore = 100;
+
+  const labels = ["Clan", "Adhocracy", "Market", "Hierarchy"];
+  const letters = ["A", "B", "C", "D"];
+  const angles = [-90, 0, 90, 180].map(deg => deg * Math.PI / 180);
+
+  ctx.strokeStyle = "#d1d5db";
+  ctx.lineWidth = 1;
+
+  for (let level = 1; level <= 5; level++) {
+    const radius = (maxRadius / 5) * level;
+
+    ctx.beginPath();
+    angles.forEach((angle, i) => {
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  angles.forEach((angle, i) => {
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(centerX + Math.cos(angle) * maxRadius, centerY + Math.sin(angle) * maxRadius);
+    ctx.stroke();
+
+    ctx.fillStyle = "#111827";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+      labels[i],
+      centerX + Math.cos(angle) * (maxRadius + 45),
+      centerY + Math.sin(angle) * (maxRadius + 35)
+    );
+  });
+
+  function drawPolygon(data, color, fillColor) {
+    ctx.beginPath();
+
+    letters.forEach((letter, i) => {
+      const radius = (data[letter] / maxScore) * maxRadius;
+      const x = centerX + Math.cos(angles[i]) * radius;
+      const y = centerY + Math.sin(angles[i]) * radius;
+
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    letters.forEach((letter, i) => {
+      const radius = (data[letter] / maxScore) * maxRadius;
+      const x = centerX + Math.cos(angles[i]) * radius;
+      const y = centerY + Math.sin(angles[i]) * radius;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+  }
+
+  drawPolygon(now, "#2563eb", "rgba(37,99,235,0.18)");
+  drawPolygon(preferred, "#dc2626", "rgba(220,38,38,0.18)");
+}
+
+function renderInterpretation(now, preferred) {
+  const strongestNow = Object.keys(now).sort((a, b) => now[b] - now[a])[0];
+  const strongestPreferred = Object.keys(preferred).sort((a, b) => preferred[b] - preferred[a])[0];
+
+  let largestGap = "A";
+
+  ["A", "B", "C", "D"].forEach(letter => {
+    if (Math.abs(preferred[letter] - now[letter]) > Math.abs(preferred[largestGap] - now[largestGap])) {
+      largestGap = letter;
+    }
+  });
+
+  const direction = preferred[largestGap] - now[largestGap] > 0 ? "increase desired" : "decrease desired";
+
+  document.getElementById("interpretation").innerHTML = `
+    <h3>Interpretation</h3>
+    <p><strong>Current dominant culture:</strong> ${cultureTypes[strongestNow]}</p>
+    <p><strong>Preferred dominant culture:</strong> ${cultureTypes[strongestPreferred]}</p>
+    <p><strong>Largest gap:</strong> ${cultureTypes[largestGap]} (${direction})</p>
+    <p>This profile can be used to discuss whether the organization wants to preserve, reduce, or strengthen specific cultural characteristics.</p>
+  `;
+}
+
+function resetAssessment() {
+  document.querySelectorAll("input[type='range']").forEach(input => {
+    input.value = 25;
+  });
+
+  document.getElementById("results").style.display = "none";
+  document.getElementById("error").style.display = "none";
+
+  updateTotals();
+  window.scrollTo(0, 0);
+}
+
+buildAssessment();
+</script>
+
+</body>
+</html>
